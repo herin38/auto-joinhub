@@ -1,40 +1,82 @@
 -- HerinaAuto Join Blox Fruit
--- Auto Full Moon Joiner with Moon Detection and Fluent Renewed UI
+-- Auto Full Moon Joiner with Moon Detection
 
 -- Stop Camera Shake
 local CamShake = require(game.ReplicatedStorage.Util.CameraShaker)
 CamShake:Stop()
 
--- Load Fluent Renewed UI Library
-local Fluent = loadstring(game:HttpGet("https://github.com/ActualMasterOogway/Fluent-Renewed/releases/latest/download/main.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ActualMasterOogway/Fluent-Renewed/main/addons/SaveManager.lua"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ActualMasterOogway/Fluent-Renewed/main/addons/InterfaceManager.lua"))()
+-- Load UI Library
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = Library.CreateLib("HerinaAuto Join Blox Fruit", "Midnight")
 
--- Create Window
-local Window = Fluent:CreateWindow({
-    Title = "HerinaAuto Join Blox Fruit",
-    SubTitle = "Full Moon Auto Joiner",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(580, 460),
-    Acrylic = true,
-    Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.End
-})
-
--- Variables for Auto Join
+-- Variables
 local isAutoJoining = false
 local retryDelay = 5 -- Default retry delay in seconds
-local selectedServerType = "All" -- Default server type
+local selectedServerType = "API1" -- Default server type
+local customAPI = "https://game.hentaiviet.top/fullmoon.php" -- Default API
 local fullMoonServers = {}
-local defaultAPI = "https://game.hentaiviet.top/fullmoon.php" -- Default API (fixed, not customizable)
+local showStatusLabel = true
 
 -- Get Current Sea
 local placeId = game.PlaceId
-local Sea1 = placeId == 2753915549
-local Sea2 = placeId == 4442272183
-local Sea3 = placeId == 7449423635
+local Sea1 = false
+local Sea2 = false  
+local Sea3 = false
 
--- Moon Status Functions
+if placeId == 2753915549 then
+    Sea1 = true
+elseif placeId == 4442272183 then
+    Sea2 = true
+elseif placeId == 7449423635 then
+    Sea3 = true
+end
+
+-- Settings System
+local HttpService = game:GetService("HttpService")
+local SaveFolder = "Herina"
+local ConfigFile = game.Players.LocalPlayer.Name .. "-BloxFruit.json"
+local Settings = {}
+
+-- Functions for Settings Management
+function SaveSettings(key, value)
+    if key ~= nil then
+        Settings[key] = value
+    end
+    
+    if not isfolder(SaveFolder) then
+        makefolder(SaveFolder)
+    end
+    
+    writefile(SaveFolder .. "/" .. ConfigFile, HttpService:JSONEncode(Settings))
+end
+
+function LoadSettings()
+    local success, result = pcall(function()
+        if not isfolder(SaveFolder) then
+            makefolder(SaveFolder)
+        end
+        return HttpService:JSONDecode(readfile(SaveFolder .. "/" .. ConfigFile))
+    end)
+    
+    if success then
+        return result
+    else
+        SaveSettings()
+        return LoadSettings()
+    end
+end
+
+-- Try to load settings
+pcall(function()
+    Settings = LoadSettings()
+    isAutoJoining = Settings.isAutoJoining or false
+    retryDelay = Settings.retryDelay or 5
+    selectedServerType = Settings.selectedServerType or "API1"
+    customAPI = Settings.customAPI or "https://game.hentaiviet.top/fullmoon.php"
+    showStatusLabel = Settings.showStatusLabel ~= nil and Settings.showStatusLabel or true
+end)
+
+-- Moon Status Functions from the second script
 function MoonTextureId()
     if Sea1 then
         return game:GetService("Lighting").FantasySky.MoonTextureId
@@ -46,23 +88,21 @@ function MoonTextureId()
 end
 
 function CheckMoon()
-    local moonTextures = {
-        moon8 = "http://www.roblox.com/asset/?id=9709150401",
-        moon7 = "http://www.roblox.com/asset/?id=9709150086",
-        moon6 = "http://www.roblox.com/asset/?id=9709149680",
-        moon5 = "http://www.roblox.com/asset/?id=9709149431", -- Full moon
-        moon4 = "http://www.roblox.com/asset/?id=9709149052", -- Next night
-        moon3 = "http://www.roblox.com/asset/?id=9709143733",
-        moon2 = "http://www.roblox.com/asset/?id=9709139597",
-        moon1 = "http://www.roblox.com/asset/?id=9709135895"
-    }
+    local moon8 = "http://www.roblox.com/asset/?id=9709150401"
+    local moon7 = "http://www.roblox.com/asset/?id=9709150086"
+    local moon6 = "http://www.roblox.com/asset/?id=9709149680"
+    local moon5 = "http://www.roblox.com/asset/?id=9709149431"
+    local moon4 = "http://www.roblox.com/asset/?id=9709149052"
+    local moon3 = "http://www.roblox.com/asset/?id=9709143733"
+    local moon2 = "http://www.roblox.com/asset/?id=9709139597"
+    local moon1 = "http://www.roblox.com/asset/?id=9709135895"
     
     local moonreal = MoonTextureId()
     local moonStatus = "Bad Moon"
     
-    if moonreal == moonTextures.moon5 then
+    if moonreal == moon5 then
         moonStatus = "Full Moon"
-    elseif moonreal == moonTextures.moon4 then
+    elseif moonreal == moon4 then
         moonStatus = "Next Night"
     end
     
@@ -85,189 +125,159 @@ function GetFormattedTime()
     return string.format("%02d:%02d", hours, minutes)
 end
 
--- Setup tabs for Fluent UI
-local Tabs = {
-    Main = Window:AddTab({ Title = "Main", Icon = "home" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
-    Servers = Window:AddTab({ Title = "Servers", Icon = "server" }),
-    MoonInfo = Window:AddTab({ Title = "Moon Info", Icon = "moon" })
-}
-
--- Initialize SaveManager with config
-SaveManager:SetLibrary(Fluent)
-SaveManager:SetFolder("HerinaBloxFruit")
-SaveManager:BuildConfigSection(Tabs.Settings)
-
--- Setup Interface Manager for themes
-InterfaceManager:SetLibrary(Fluent)
-InterfaceManager:SetFolder("HerinaBloxFruit")
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-
--- Current Moon Status Labels
-local MoonStatusSection = Tabs.MoonInfo:AddSection("Current Moon Status")
-
-local moonStatusLabel = MoonStatusSection:AddParagraph({
-    Title = "Moon Status",
-    Content = "Loading..."
-})
-
--- Update Moon Status Information
-spawn(function()
-    while wait(1) do
-        local moonStatus = CheckMoon()
-        local timeInfo = GetMoonTimeInfo()
-        local gameTimePhase = GetGameTime()
-        
-        local statusContent = "Moon: " .. moonStatus .. "\n"
-        statusContent = statusContent .. "Time: " .. timeInfo .. "\n"
-        statusContent = statusContent .. "Phase: " .. gameTimePhase
-        
-        moonStatusLabel:SetContent(statusContent)
-    end
-end)
-
--- Main tab
-local MainSection = Tabs.Main:AddSection("Full Moon Auto Join")
-
--- Auto Join Toggle
-local autoJoinToggle = MainSection:AddToggle("AutoJoinToggle", {
-    Title = "Auto Join Full Moon Servers",
-    Default = isAutoJoining,
-    Callback = function(Value)
-        if Value then
-            startAutoJoining()
-        else
-            stopAutoJoining()
-        end
-    end
-})
-
--- Refresh Servers Button
-MainSection:AddButton({
-    Title = "Refresh Servers",
-    Callback = function()
-        Fluent:Notify({
-            Title = "Refreshing",
-            Content = "Fetching Full Moon servers...",
-            Duration = 3
-        })
-        
-        fullMoonServers = fetchFullMoonServers()
-        
-        if #fullMoonServers > 0 then
-            Fluent:Notify({
-                Title = "Success",
-                Content = "Found " .. #fullMoonServers .. " Full Moon servers",
-                Duration = 3
-            })
-            updateServerList()
-        else
-            Fluent:Notify({
-                Title = "No Servers",
-                Content = "No Full Moon servers found",
-                Duration = 3
-            })
-        end
-    end
-})
-
--- Settings tab
-local SettingsSection = Tabs.Settings:AddSection("Auto Join Settings")
-
--- Retry Delay Slider
-SettingsSection:AddSlider("RetryDelaySlider", {
-    Title = "Retry Delay (seconds)",
-    Default = retryDelay,
-    Min = 1,
-    Max = 30,
-    Rounding = 0,
-    Callback = function(Value)
-        retryDelay = Value
-        SaveManager:Save({ retryDelay = Value })
-    end
-})
-
--- Server Type Dropdown
-SettingsSection:AddDropdown("ServerTypeDropdown", {
-    Title = "Server Type",
-    Values = { "All", "TeleportService", "ServerBrowser" },
-    Default = selectedServerType,
-    Callback = function(Value)
-        selectedServerType = Value
-        SaveManager:Save({ selectedServerType = Value })
-    end
-})
-
--- Servers tab and list management
-local ServerListSection = Tabs.Servers:AddSection("Full Moon Servers")
-local serverButtons = {}
-
--- Function to update the server list UI
-function updateServerList()
-    -- Clear existing buttons
-    for _, button in ipairs(serverButtons) do
-        button:Destroy()
-    end
-    serverButtons = {}
+function GetMoonTimeInfo()
+    local clockTime = game.Lighting.ClockTime
+    local moonStatus = CheckMoon()
     
-    -- Add server information
-    if #fullMoonServers == 0 then
-        local noServersLabel = ServerListSection:AddParagraph({
-            Title = "No Servers",
-            Content = "No Full Moon servers found. Try refreshing."
-        })
-        table.insert(serverButtons, noServersLabel)
-    else
-        for i, server in ipairs(fullMoonServers) do
-            if i > 5 then break end -- Show only the first 5 servers
-            
-            local serverButton = ServerListSection:AddButton({
-                Title = "Server " .. i .. " | Type: " .. (server.serverType or "Unknown"),
-                Description = "Players: " .. (server.players or "N/A"),
-                Callback = function()
-                    Fluent:Notify({
-                        Title = "Joining Server",
-                        Content = "Attempting to join Full Moon server...",
-                        Duration = 3
-                    })
-                    joinFullMoonServer(server)
-                end
-            })
-            
-            table.insert(serverButtons, serverButton)
-        end
+    if moonStatus == "Full Moon" and clockTime <= 5 then
+        return GetFormattedTime() .. " (Moon ends in " .. math.floor(5 - clockTime) .. " minutes)"
+    elseif moonStatus == "Full Moon" and (clockTime > 5 and clockTime < 12) then
+        return GetFormattedTime() .. " (Fake Moon)"
+    elseif moonStatus == "Full Moon" and (clockTime > 12 and clockTime < 18) then
+        return GetFormattedTime() .. " (Full Moon in " .. math.floor(18 - clockTime) .. " minutes)"
+    elseif moonStatus == "Full Moon" and (clockTime > 18 and clockTime <= 24) then
+        return GetFormattedTime() .. " (Moon ends in " .. math.floor(24 + 6 - clockTime) .. " minutes)"
+    elseif moonStatus == "Next Night" and clockTime < 12 then
+        return GetFormattedTime() .. " (Full Moon in " .. math.floor(18 - clockTime) .. " minutes)"
+    elseif moonStatus == "Next Night" and clockTime > 12 then
+        return GetFormattedTime() .. " (Full Moon in " .. math.floor(18 + 12 - clockTime) .. " minutes)"
     end
+    
+    return GetFormattedTime()
 end
 
--- Initial server fetch
-spawn(function()
-    wait(2) -- Wait for UI to load
-    fullMoonServers = fetchFullMoonServers()
-    updateServerList()
-end)
+-- Function to fetch servers from the Full Moon API
+local function fetchFullMoonServers()
+    local success, response = pcall(function()
+        return game:HttpGet(customAPI)
+    end)
+    
+    if not success then
+        print("Failed to fetch Full Moon servers: " .. response)
+        return {}
+    end
+    
+    local servers = {}
+    
+    -- Try to parse the JSON response
+    local success, parsedResponse = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(response)
+    end)
+    
+    if not success then
+        print("Failed to parse API response")
+        return {}
+    end
+    
+    -- Check the structure of the response
+    if parsedResponse.status == "done" and parsedResponse.results then
+        for _, channel in ipairs(parsedResponse.results) do
+            if channel.messages then
+                for _, message in ipairs(channel.messages) do
+                    -- Check for embeds
+                    if message.embeds and #message.embeds > 0 then
+                        for _, embed in ipairs(message.embeds) do
+                            -- Check for fields
+                            if embed.fields then
+                                local serverInfo = {
+                                    jobId = nil,
+                                    teleportScript = nil,
+                                    serverType = nil,
+                                    players = "N/A",
+                                    timestamp = message.timestamp
+                                }
+                                
+                                -- Extract server information
+                                for _, field in ipairs(embed.fields) do
+                                    -- Extract Job ID
+                                    if field.name:find("Job ID") then
+                                        local jobId = field.value:match("```yaml\n(.-)```") or field.value
+                                        jobId = jobId:gsub("```yaml\n", ""):gsub("\n```", ""):gsub("%s+", "")
+                                        serverInfo.jobId = jobId
+                                    end
+                                    
+                                    -- Extract Teleport Script
+                                    if field.name:find("Join Script") or field.name:find("__Join Script") then
+                                        local script = field.value:match("```lua\n(.-)```") or field.value
+                                        script = script:gsub("```lua\n", ""):gsub("\n```", "")
+                                        serverInfo.teleportScript = script
+                                        
+                                        -- Determine server type
+                                        if script:find("TeleportService") then
+                                            serverInfo.serverType = "TeleportService"
+                                        elseif script:find("__ServerBrowser") then
+                                            serverInfo.serverType = "ServerBrowser"
+                                        end
+                                    end
+                                    
+                                    -- Extract Players if available
+                                    if field.name:find("Players") then
+                                        serverInfo.players = field.value:match("```yaml\n(.-)```") or field.value
+                                        serverInfo.players = serverInfo.players:gsub("```yaml\n", ""):gsub("\n```", "")
+                                    end
+                                end
+                                
+                                -- Check if embed description has teleport script
+                                if embed.description and embed.description:find("Join Script") then
+                                    local script = embed.description:match("```lua\n(.-)```")
+                                    if script then
+                                        serverInfo.teleportScript = script
+                                        
+                                        -- Determine server type
+                                        if script:find("TeleportService") then
+                                            serverInfo.serverType = "TeleportService"
+                                        elseif script:find("__ServerBrowser") then
+                                            serverInfo.serverType = "ServerBrowser"
+                                        end
+                                    end
+                                end
+                                
+                                -- Add server to list if it has required info
+                                if serverInfo.jobId and serverInfo.teleportScript then
+                                    table.insert(servers, serverInfo)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Sort servers by timestamp (newest first)
+    table.sort(servers, function(a, b)
+        return a.timestamp > b.timestamp
+    end)
+    
+    return servers
+end
 
--- Load saved settings
-SaveManager:LoadAutoloadConfig()
-
--- Initial notification
-Fluent:Notify({
-    Title = "HerinaAuto Join Blox Fruit",
-    Content = "Loaded successfully!",
-    Duration = 5
-})d
+-- Function to join a Full Moon server
+local function joinFullMoonServer(serverInfo)
+    if not serverInfo or not serverInfo.teleportScript then
+        print("Invalid server information")
+        return false
+    end
+    
+    local success, errorMsg = pcall(function()
+        -- Execute the teleport script
+        loadstring(serverInfo.teleportScript)()
+    end)
+    
+    if not success then
+        print("Failed to join server: " .. errorMsg)
+        return false
+    end
+    
+    return true
+end
 
 -- Function to start auto joining
 local function startAutoJoining()
     if isAutoJoining then return end
     
     isAutoJoining = true
-    SaveManager:Save({ isAutoJoining = true })
-    
-    Fluent:Notify({
-        Title = "Auto Join",
-        Content = "Full Moon Auto Join enabled",
-        Duration = 3
-    })
+    SaveSettings("isAutoJoining", true)
     
     spawn(function()
         while isAutoJoining do
@@ -279,7 +289,7 @@ local function startAutoJoining()
                 -- Filter servers by selected type if needed
                 local filteredServers = {}
                 
-                if selectedServerType == "All" then
+                if selectedServerType == "API1" then
                     -- Use all servers
                     filteredServers = fullMoonServers
                 elseif selectedServerType == "TeleportService" then
@@ -303,11 +313,7 @@ local function startAutoJoining()
                     local joined = joinFullMoonServer(filteredServers[1])
                     
                     if joined then
-                        Fluent:Notify({
-                            Title = "Auto Join",
-                            Content = "Successfully joined Full Moon server!",
-                            Duration = 3
-                        })
+                        print("Successfully joined Full Moon server!")
                         -- Wait a bit to see if teleport worked
                         wait(5)
                     end
@@ -324,136 +330,201 @@ local function startAutoJoining()
     end)
 end
 
--- Function to fetch Full Moon servers from API
-function fetchFullMoonServers()
-    local servers = {}
-    
-    -- HTTP request to the API
-    local success, response = pcall(function()
-        return game:GetService("HttpService"):JSONDecode(
-            game:HttpGet(defaultAPI)
-        )
-    end)
-    
-    if success and response then
-        -- Process the response and format server data
-        for _, server in ipairs(response) do
-            table.insert(servers, {
-                jobId = server.jobId,
-                players = server.playing or "N/A",
-                serverType = server.type or "Unknown",
-                placeId = server.placeId
-            })
-        end
-    else
-        Fluent:Notify({
-            Title = "Error",
-            Content = "Failed to fetch servers from API",
-            Duration = 3
-        })
-    end
-    
-    return servers
+-- Function to stop auto joining
+local function stopAutoJoining()
+    isAutoJoining = false
+    SaveSettings("isAutoJoining", false)
 end
 
--- Function to join a Full Moon server
-function joinFullMoonServer(server)
-    if not server or not server.jobId then
-        return false
-    end
-    
-    local success = pcall(function()
-        game:GetService("TeleportService"):TeleportToPlaceInstance(
-            server.placeId or game.PlaceId,
-            server.jobId,
-            game.Players.LocalPlayer
-        )
-    end)
-    
-    return success
-end
+-- Create Status Screen
+local StatusScreen = Instance.new("ScreenGui")
+local StatusFrame = Instance.new("Frame")
+local StatusLabel = Instance.new("TextLabel")
+local UICorner = Instance.new("UICorner")
 
--- Function to get moon time information
-function GetMoonTimeInfo()
-    local clockTime = game.Lighting.ClockTime
-    local timeStr = GetFormattedTime()
-    
-    -- Calculate time until night/day
-    local timeUntil = ""
-    if clockTime >= 5 and clockTime < 18 then
-        -- It's day, calculate time until night
-        local hoursUntil = 18 - clockTime
-        if hoursUntil < 0 then hoursUntil = hoursUntil + 24 end
-        timeUntil = string.format("%.1f hours until night", hoursUntil)
-    else
-        -- It's night, calculate time until day
-        local hoursUntil = 5 - clockTime
-        if hoursUntil < 0 then hoursUntil = hoursUntil + 24 end
-        timeUntil = string.format("%.1f hours until day", hoursUntil)
-    end
-    
-    return timeStr .. " (" .. timeUntil .. ")"
-end
+StatusScreen.Name = "HerinaStatusScreen"
+StatusScreen.Parent = game.CoreGui
+StatusScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+StatusScreen.ResetOnSpawn = false
 
--- Add server hop button
-MainSection:AddButton({
-    Title = "Server Hop",
-    Callback = function()
-        local success, servers = pcall(function()
-            return game:GetService("HttpService"):JSONDecode(
-                game:HttpGet(defaultAPI)
-            )
-        end)
-        
-        if success and #servers > 0 then
-            local randomServer = servers[math.random(1, #servers)]
-            joinFullMoonServer(randomServer)
+StatusFrame.Name = "StatusFrame"
+StatusFrame.Parent = StatusScreen
+StatusFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+StatusFrame.BackgroundTransparency = 0.3
+StatusFrame.Position = UDim2.new(0, 10, 0, 50)
+StatusFrame.Size = UDim2.new(0, 250, 0, 80)
+StatusFrame.BorderSizePixel = 0
+StatusFrame.Active = true
+StatusFrame.Draggable = true
+
+UICorner.Parent = StatusFrame
+UICorner.CornerRadius = UDim.new(0, 10)
+
+StatusLabel.Name = "StatusLabel"
+StatusLabel.Parent = StatusFrame
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Position = UDim2.new(0, 10, 0, 5)
+StatusLabel.Size = UDim2.new(1, -20, 1, -10)
+StatusLabel.Font = Enum.Font.GothamSemibold
+StatusLabel.Text = "Loading..."
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.TextSize = 14
+StatusLabel.TextWrapped = true
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.TextYAlignment = Enum.TextYAlignment.Top
+
+-- Update Status Function
+local function updateStatus()
+    while true do
+        if showStatusLabel then
+            StatusFrame.Visible = true
+            
+            local localMoonStatus = CheckMoon()
+            local timeInfo = GetMoonTimeInfo()
+            local gameTimePhase = GetGameTime()
+            
+            local statusText = ""
+            statusText = statusText .. "Moon: " .. localMoonStatus .. "\n"
+            statusText = statusText .. "Time: " .. timeInfo .. "\n"
+            statusText = statusText .. "Phase: " .. gameTimePhase
+            
+            if isAutoJoining then
+                statusText = statusText .. "\nAuto Join: ON"
+            else
+                statusText = statusText .. "\nAuto Join: OFF"
+            end
+            
+            StatusLabel.Text = statusText
         else
-            Fluent:Notify({
-                Title = "Error",
-                Content = "No servers available for hopping",
-                Duration = 3
-            })
+            StatusFrame.Visible = false
         end
+        
+        wait(1)
     end
-})
+end
 
--- Add status indicator
-local StatusSection = Tabs.Main:AddSection("Status")
+-- Start status updater
+spawn(updateStatus)
 
-local statusLabel = StatusSection:AddParagraph({
-    Title = "Auto Join Status",
-    Content = "Disabled"
-})
+-- UI Setup
 
--- Update status label
-spawn(function()
-    while wait(1) do
-        local status = isAutoJoining and "Enabled" or "Disabled"
-        local content = "Status: " .. status
-        if isAutoJoining then
-            content = content .. "\nRetry Delay: " .. retryDelay .. "s"
-            content = content .. "\nServer Type: " .. selectedServerType
-        end
-        statusLabel:SetContent(content)
+-- Main Tab
+local MainTab = Window:NewTab("Main")
+local MainSection = MainTab:NewSection("Full Moon Auto Join")
+
+-- Auto Join Toggle
+MainSection:NewToggle("Auto Join Full Moon Servers", "Automatically join servers with Full Moon", function(state)
+    if state then
+        startAutoJoining()
+    else
+        stopAutoJoining()
     end
 end)
 
--- Add server count indicator
-local serverCountLabel = ServerListSection:AddParagraph({
-    Title = "Server Count",
-    Content = "0 servers found"
+-- Status Label Toggle
+MainSection:NewToggle("Show Status Label", "Show/Hide the floating status label", function(state)
+    showStatusLabel = state
+    SaveSettings("showStatusLabel", state)
+end)
+
+-- Server List Section
+local ServerSection = MainTab:NewSection("Server List")
+
+-- Function to update server list
+local function updateServerList()
+    -- Clear existing buttons
+    for _, element in ipairs(ServerSection:GetElements()) do
+        if element.Name:find("ServerButton") then
+            element:Remove()
+        end
+    end
+    
+    -- Add server information
+    if #fullMoonServers == 0 then
+        ServerSection:NewLabel("No servers found")
+    else
+        for i, server in ipairs(fullMoonServers) do
+            if i > 5 then break end -- Show only the first 5 servers
+            
+            -- Add join button for this server
+            local serverLabel = "Join Server " .. i .. " | Type: " .. (server.serverType or "Unknown") .. 
+                " | Players: " .. (server.players or "N/A")
+            
+            ServerSection:NewButton(serverLabel, "Join this Full Moon server", function()
+                joinFullMoonServer(server)
+            end)
+        end
+    end
+end
+
+-- Refresh Servers Button
+MainSection:NewButton("Refresh Servers", "Manually refresh Full Moon servers", function()
+    fullMoonServers = fetchFullMoonServers()
+    print("Found " .. #fullMoonServers .. " Full Moon servers")
+    updateServerList()
+end)
+
+-- Settings Tab
+local SettingsTab = Window:NewTab("Settings")
+local SettingsSection = SettingsTab:NewSection("Settings")
+
+-- Retry Delay Slider
+SettingsSection:NewSlider("Retry Delay (seconds)", "Set delay between join attempts", 30, 1, function(value)
+    retryDelay = value
+    SaveSettings("retryDelay", value)
+end)
+
+-- Server Type Dropdown
+SettingsSection:NewDropdown("Server Type", "Select server type to join", {"API1", "TeleportService", "ServerBrowser"}, function(currentOption)
+    selectedServerType = currentOption
+    SaveSettings("selectedServerType", currentOption)
+end)
+
+-- Custom API Input
+SettingsSection:NewTextBox("Custom API URL", "Enter custom API URL", function(text)
+    customAPI = text
+    SaveSettings("customAPI", text)
+end)
+
+-- Moon Info Tab
+local MoonTab = Window:NewTab("Moon Info")
+local MoonSection = MoonTab:NewSection("Current Moon Status")
+
+local CurrentMoonLabel = MoonSection:NewLabel("Moon: Loading...")
+local CurrentTimeLabel = MoonSection:NewLabel("Time: Loading...")
+local CurrentPhaseLabel = MoonSection:NewLabel("Phase: Loading...")
+
+-- Update moon info
+spawn(function()
+    while wait(1) do
+        CurrentMoonLabel:UpdateLabel("Moon: " .. CheckMoon())
+        CurrentTimeLabel:UpdateLabel("Time: " .. GetFormattedTime())
+        CurrentPhaseLabel:UpdateLabel("Phase: " .. GetGameTime())
+    end
+end)
+
+-- About Tab
+local AboutTab = Window:NewTab("About")
+local AboutSection = AboutTab:NewSection("About")
+
+AboutSection:NewLabel("HerinaAuto Join Blox Fruit v1.0")
+AboutSection:NewLabel("Press RightShift to toggle UI")
+
+-- Initial setup
+if Settings.isAutoJoining then
+    startAutoJoining()
+end
+
+-- Initial server fetch
+spawn(function()
+    wait(1) -- Wait for UI to load
+    fullMoonServers = fetchFullMoonServers()
+    updateServerList()
+end)
+
+-- Notification
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "HerinaAuto Join Blox Fruit",
+    Text = "Loaded successfully! Press RightShift to toggle GUI",
+    Duration = 5
 })
-
--- Update server count
-function updateServerCount()
-    serverCountLabel:SetContent(#fullMoonServers .. " servers found")
-end
-
--- Hook the server count update to the refresh function
-local originalRefresh = fetchFullMoonServers
-fetchFullMoonServers = function()
-    local servers = originalRefresh()
-    updateServerCount()
-    return servers
-end
