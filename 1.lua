@@ -510,6 +510,129 @@ local AboutSection = AboutTab:NewSection("About")
 AboutSection:NewLabel("HerinaAuto Join Blox Fruit v1.0")
 AboutSection:NewLabel("Press RightShift to toggle UI")
 
+-- Race V4 Tab
+local RaceV4Tab = Window:NewTab("Race V4")
+local RaceV4Section = RaceV4Tab:NewSection("Race V4")
+
+if not Sea3 then
+    RaceV4Section:NewLabel("You Are Not in Third Sea!!")
+else
+    RaceV4Section:NewSection("👾 Race V4 👾")
+    
+    RaceV4Section:NewButton("Teleport To Top Of GreatTree", "Teleports you to the Great Tree", function()
+        Tween(CFrame.new(2947.556884765625, 2281.630615234375, -7213.54931640625))
+    end)
+    
+    RaceV4Section:NewButton("Teleport To Temple Of Time", "Teleports you to the Temple of Time", function()
+        game:GetService("Players").LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(28286.35546875, 14895.3017578125, 102.62469482421875)
+    end)
+    
+    RaceV4Section:NewButton("Teleport To Lever Pull", "Teleports you to the Lever", function()
+        Tween(CFrame.new(28575.181640625, 14936.6279296875, 72.31636810302734))
+    end)
+    
+    RaceV4Section:NewButton("Teleport To Ancient One", "Must be in Temple Of Time!", function()
+        Tween(CFrame.new(28981.552734375, 14888.4267578125, -120.245849609375))
+    end)
+    
+    RaceV4Section:NewButton("Unlock Lever", "Unlocks the Temple of Time lever", function()
+        Library:Notify("Unlocked")
+        if game:GetService("Workspace").Map["Temple of Time"].Lever.Prompt:FindFirstChild("ProximityPrompt") then
+            game:GetService("Workspace").Map["Temple of Time"].Lever.Prompt:FindFirstChild("ProximityPrompt"):Remove()
+        end
+        
+        local ProximityPrompt = Instance.new("ProximityPrompt")
+        ProximityPrompt.Parent = game:GetService("Workspace").Map["Temple of Time"].Lever.Prompt
+        ProximityPrompt.MaxActivationDistance = 10
+        ProximityPrompt.ActionText = "Secrets Beholds Inside"
+        ProximityPrompt.ObjectText = "An unknown lever of time"
+        
+        ProximityPrompt.Triggered:Connect(function()
+            local part = game:GetService("Workspace").Map["Temple of Time"].MainDoor1
+            local partnew = game:GetService("Workspace").Map["Temple of Time"].MainDoor2
+            local TweenService = game:GetService("TweenService")
+            
+            -- Door 1 Animation
+            local tween = TweenService:Create(part, 
+                TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+                {Position = part.Position + Vector3.new(0, -50, 0)}
+            )
+            tween:Play()
+            
+            -- Door 2 Animation
+            local tween2 = TweenService:Create(partnew,
+                TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+                {Position = partnew.Position + Vector3.new(0, -50, 0)}
+            )
+            tween2:Play()
+            
+            -- Sound Effect
+            local SoundSFX = Instance.new("Sound")
+            SoundSFX.Parent = workspace
+            SoundSFX.SoundId = "rbxassetid://1904813041"
+            SoundSFX.Name = "POwfpxzxzfFfFF"
+            SoundSFX:Play()
+            
+            -- Cleanup
+            ProximityPrompt:Remove()
+            wait(5)
+            workspace:FindFirstChild("POwfpxzxzfFfFF"):Remove()
+            
+            -- Remove NoGlitching parts
+            for _, v in pairs(game:GetService("Workspace").Map["Temple of Time"]:GetChildren()) do
+                if v.Name == "NoGlitching" then
+                    v:Remove()
+                end
+            end
+        end)
+    end)
+    
+    RaceV4Section:NewButton("Clock Access", "Removes barriers in Clock Room", function()
+        game:GetService("Workspace").Map["Temple of Time"].DoNotEnter:Remove()
+        game:GetService("Workspace").Map["Temple of Time"].ClockRoomExit:Remove()
+    end)
+    
+    RaceV4Section:NewToggle("Disable Inf Stairs", "Disables infinite stairs effect", function(value)
+        if game.Players.LocalPlayer.Character:FindFirstChild("InfiniteStairs") then
+            game.Players.LocalPlayer.Character.InfiniteStairs.Disabled = value
+        end
+    end)
+    
+    -- Race Door Teleports
+    local doors = {
+        ["Cyborg"] = CFrame.new(28492.4140625, 14894.4267578125, -422.1100158691406),
+        ["Fish"] = CFrame.new(28224.056640625, 14889.4267578125, -210.5872039794922),
+        ["Ghoul"] = CFrame.new(28672.720703125, 14889.1279296875, 454.5961608886719),
+        ["Human"] = CFrame.new(29237.294921875, 14889.4267578125, -206.94955444335938),
+        ["Mink"] = CFrame.new(29020.66015625, 14889.4267578125, -379.2682800292969),
+        ["Sky"] = CFrame.new(28967.408203125, 14918.0751953125, 234.31198120117188)
+    }
+    
+    for name, cf in pairs(doors) do
+        RaceV4Section:NewButton("Teleport " .. name .. " Door", "Must be in Temple Of Time!", function()
+            Tween(cf)
+        end)
+    end
+    
+    RaceV4Section:NewSection("🍃 Auto Complete Trials 🍃")
+    
+    RaceV4Section:NewButton("Auto Upgrade Tier", "Automatically upgrades your race tier", function()
+        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer('UpgradeRace','Buy')
+    end)
+    
+    RaceV4Section:NewButton("Auto Complete Angel Trial", "Completes the Sky/Angel trial", function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Workspace.Map.SkyTrial.Model.FinishPart.CFrame
+    end)
+    
+    RaceV4Section:NewButton("Auto Complete Rabbit Trial", "Completes the Mink/Rabbit trial", function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game:GetService("Workspace").Map.MinkTrial.Ceiling.CFrame * CFrame.new(0,-5,0)
+    end)
+    
+    RaceV4Section:NewButton("Auto Complete Cyborg Trial", "Completes the Cyborg trial", function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,300,0)
+    end)
+end
+
 -- Initial setup
 if Settings.isAutoJoining then
     startAutoJoining()
