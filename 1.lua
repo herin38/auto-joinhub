@@ -5,29 +5,9 @@
 local CamShake = require(game.ReplicatedStorage.Util.CameraShaker)
 CamShake:Stop()
 
--- Load Fluent UI Library
-local Library = loadstring(game:GetService("HttpService"):GetAsync("https://github.com/ActualMasterOogway/Fluent-Renewed/releases/latest/download/Fluent.luau", true))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ActualMasterOogway/Fluent-Renewed/refs/heads/main/Addons/SaveManager.luau"))()
--- InterfaceManager might be missing, so we'll create a minimal version
-local InterfaceManager = {}
-InterfaceManager.Library = nil
-InterfaceManager.SetLibrary = function(self, library) self.Library = library end
-
--- Try to load the official InterfaceManager if it exists
-pcall(function()
-    InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ActualMasterOogway/Fluent-Renewed/refs/heads/main/Addons/InterfaceManager.luau"))()
-end)
-
--- Create Window
-local Window = Library:CreateWindow({
-    Title = "HerinaAuto Join Blox Fruit",
-    SubTitle = "by Herina",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(580, 460),
-    Acrylic = true,
-    Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.RightShift
-})
+-- Load UI Library
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = Library.CreateLib("HerinaAuto Join Blox Fruit", "Midnight")
 
 -- Variables
 local isAutoJoining = false
@@ -96,7 +76,7 @@ pcall(function()
     showStatusLabel = Settings.showStatusLabel ~= nil and Settings.showStatusLabel or true
 end)
 
--- Moon Status Functions
+-- Moon Status Functions from the second script
 function MoonTextureId()
     if Sea1 then
         return game:GetService("Lighting").FantasySky.MoonTextureId
@@ -275,11 +255,7 @@ end
 -- Function to join a Full Moon server
 local function joinFullMoonServer(serverInfo)
     if not serverInfo or not serverInfo.teleportScript then
-        Library:Notify({
-            Title = "Error",
-            Content = "Invalid server information",
-            Duration = 5
-        })
+        print("Invalid server information")
         return false
     end
     
@@ -289,11 +265,7 @@ local function joinFullMoonServer(serverInfo)
     end)
     
     if not success then
-        Library:Notify({
-            Title = "Error",
-            Content = "Failed to join server: " .. errorMsg,
-            Duration = 5
-        })
+        print("Failed to join server: " .. errorMsg)
         return false
     end
     
@@ -341,11 +313,7 @@ local function startAutoJoining()
                     local joined = joinFullMoonServer(filteredServers[1])
                     
                     if joined then
-                        Library:Notify({
-                            Title = "Success",
-                            Content = "Successfully joined Full Moon server!",
-                            Duration = 5
-                        })
+                        print("Successfully joined Full Moon server!")
                         -- Wait a bit to see if teleport worked
                         wait(5)
                     end
@@ -381,16 +349,16 @@ StatusScreen.ResetOnSpawn = false
 
 StatusFrame.Name = "StatusFrame"
 StatusFrame.Parent = StatusScreen
-StatusFrame.BackgroundColor3 = Color3.fromRGB(36, 36, 36)
-StatusFrame.BackgroundTransparency = 0.1
+StatusFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+StatusFrame.BackgroundTransparency = 0.3
 StatusFrame.Position = UDim2.new(0, 10, 0, 50)
-StatusFrame.Size = UDim2.new(0, 250, 0, 100)
+StatusFrame.Size = UDim2.new(0, 250, 0, 80)
 StatusFrame.BorderSizePixel = 0
 StatusFrame.Active = true
 StatusFrame.Draggable = true
 
 UICorner.Parent = StatusFrame
-UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.CornerRadius = UDim.new(0, 10)
 
 StatusLabel.Name = "StatusLabel"
 StatusLabel.Parent = StatusFrame
@@ -438,180 +406,109 @@ end
 -- Start status updater
 spawn(updateStatus)
 
--- Set up tabs
-local MainTab = Window:AddTab({ Title = "Main", Icon = "rbxassetid://9087102675" })
-local ServerTab = Window:AddTab({ Title = "Servers", Icon = "rbxassetid://9741251534" })
-local SettingsTab = Window:AddTab({ Title = "Settings", Icon = "rbxassetid://9087103497" })
-local MoonTab = Window:AddTab({ Title = "Moon Info", Icon = "rbxassetid://9087101050" })
-local AboutTab = Window:AddTab({ Title = "About", Icon = "rbxassetid://9087100771" })
+-- UI Setup
 
--- Create Main Tab sections
-local MainSection = MainTab:AddSection("Full Moon Auto Join")
+-- Main Tab
+local MainTab = Window:NewTab("Main")
+local MainSection = MainTab:NewSection("Full Moon Auto Join")
 
 -- Auto Join Toggle
-local AutoJoinToggle = MainTab:AddToggle("AutoJoinToggle", {
-    Title = "Auto Join Full Moon Servers",
-    Default = isAutoJoining,
-    Callback = function(Value)
-        if Value then
-            startAutoJoining()
-        else
-            stopAutoJoining()
-        end
+MainSection:NewToggle("Auto Join Full Moon Servers", "Automatically join servers with Full Moon", function(state)
+    if state then
+        startAutoJoining()
+    else
+        stopAutoJoining()
     end
-})
+end)
 
 -- Status Label Toggle
-local StatusLabelToggle = MainTab:AddToggle("StatusLabelToggle", {
-    Title = "Show Status Label",
-    Default = showStatusLabel,
-    Callback = function(Value)
-        showStatusLabel = Value
-        SaveSettings("showStatusLabel", Value)
-    end
-})
+MainSection:NewToggle("Show Status Label", "Show/Hide the floating status label", function(state)
+    showStatusLabel = state
+    SaveSettings("showStatusLabel", state)
+end)
 
--- Refresh Servers Button
-local RefreshButton = MainTab:AddButton({
-    Title = "Refresh Servers",
-    Description = "Manually refresh Full Moon servers",
-    Callback = function()
-        fullMoonServers = fetchFullMoonServers()
-        Library:Notify({
-            Title = "Server List Updated",
-            Content = "Found " .. #fullMoonServers .. " Full Moon servers",
-            Duration = 3
-        })
-        updateServerList()
-    end
-})
-
--- Create Server Tab
-local ServerListSection = ServerTab:AddSection("Available Full Moon Servers")
-
--- Server List Items
-local serverButtons = {}
+-- Server List Section
+local ServerSection = MainTab:NewSection("Server List")
 
 -- Function to update server list
-function updateServerList()
-    -- Clear existing server buttons
-    for _, button in ipairs(serverButtons) do
-        button:Destroy()
+local function updateServerList()
+    -- Clear existing buttons
+    for _, element in ipairs(ServerSection:GetElements()) do
+        if element.Name:find("ServerButton") then
+            element:Remove()
+        end
     end
-    serverButtons = {}
     
-    -- Add new server buttons
+    -- Add server information
     if #fullMoonServers == 0 then
-        ServerTab:AddParagraph({
-            Title = "No Servers Found",
-            Content = "No full moon servers are currently available. Try refreshing the list."
-        })
+        ServerSection:NewLabel("No servers found")
     else
         for i, server in ipairs(fullMoonServers) do
-            if i > 8 then break end -- Show only the first 8 servers
+            if i > 5 then break end -- Show only the first 5 servers
             
-            local buttonTitle = "Server " .. i
-            local buttonDesc = "Type: " .. (server.serverType or "Unknown") .. " | Players: " .. (server.players or "N/A")
+            -- Add join button for this server
+            local serverLabel = "Join Server " .. i .. " | Type: " .. (server.serverType or "Unknown") .. 
+                " | Players: " .. (server.players or "N/A")
             
-            local serverButton = ServerTab:AddButton({
-                Title = buttonTitle,
-                Description = buttonDesc,
-                Callback = function()
-                    joinFullMoonServer(server)
-                end
-            })
-            
-            table.insert(serverButtons, serverButton)
+            ServerSection:NewButton(serverLabel, "Join this Full Moon server", function()
+                joinFullMoonServer(server)
+            end)
         end
     end
 end
 
--- Create Settings Tab sections
-local SettingsSection = SettingsTab:AddSection("Auto Join Settings")
+-- Refresh Servers Button
+MainSection:NewButton("Refresh Servers", "Manually refresh Full Moon servers", function()
+    fullMoonServers = fetchFullMoonServers()
+    print("Found " .. #fullMoonServers .. " Full Moon servers")
+    updateServerList()
+end)
+
+-- Settings Tab
+local SettingsTab = Window:NewTab("Settings")
+local SettingsSection = SettingsTab:NewSection("Settings")
 
 -- Retry Delay Slider
-local DelaySlider = SettingsTab:AddSlider("RetryDelaySlider", {
-    Title = "Retry Delay (seconds)",
-    Description = "Set delay between join attempts",
-    Default = retryDelay,
-    Min = 1,
-    Max = 30,
-    Rounding = 0,
-    Callback = function(Value)
-        retryDelay = Value
-        SaveSettings("retryDelay", Value)
-    end
-})
+SettingsSection:NewSlider("Retry Delay (seconds)", "Set delay between join attempts", 30, 1, function(value)
+    retryDelay = value
+    SaveSettings("retryDelay", value)
+end)
 
 -- Server Type Dropdown
-local ServerTypeDropdown = SettingsTab:AddDropdown("ServerTypeDropdown", {
-    Title = "Server Type",
-    Description = "Select server type to join",
-    Values = {"API1", "TeleportService", "ServerBrowser"},
-    Default = selectedServerType,
-    Multi = false,
-    Callback = function(Value)
-        selectedServerType = Value
-        SaveSettings("selectedServerType", Value)
-    end
-})
+SettingsSection:NewDropdown("Server Type", "Select server type to join", {"API1", "TeleportService", "ServerBrowser"}, function(currentOption)
+    selectedServerType = currentOption
+    SaveSettings("selectedServerType", currentOption)
+end)
 
 -- Custom API Input
-local APIInput = SettingsTab:AddInput("CustomAPIInput", {
-    Title = "Custom API URL",
-    Default = customAPI,
-    Placeholder = "Enter custom API URL",
-    Numeric = false,
-    Finished = true,
-    Callback = function(Value)
-        customAPI = Value
-        SaveSettings("customAPI", Value)
-    end
-})
+SettingsSection:NewTextBox("Custom API URL", "Enter custom API URL", function(text)
+    customAPI = text
+    SaveSettings("customAPI", text)
+end)
 
--- Create Moon Info Tab sections
-local MoonInfoSection = MoonTab:AddSection("Current Moon Status")
+-- Moon Info Tab
+local MoonTab = Window:NewTab("Moon Info")
+local MoonSection = MoonTab:NewSection("Current Moon Status")
 
--- Moon Status
-local MoonStatusParagraph = MoonTab:AddParagraph({
-    Title = "Moon Status",
-    Content = "Loading..."
-})
-
--- Moon Time
-local MoonTimeParagraph = MoonTab:AddParagraph({
-    Title = "Game Time",
-    Content = "Loading..."
-})
+local CurrentMoonLabel = MoonSection:NewLabel("Moon: Loading...")
+local CurrentTimeLabel = MoonSection:NewLabel("Time: Loading...")
+local CurrentPhaseLabel = MoonSection:NewLabel("Phase: Loading...")
 
 -- Update moon info
 spawn(function()
     while wait(1) do
-        MoonStatusParagraph:SetDesc("Current Status: " .. CheckMoon() .. "\nPhase: " .. GetGameTime())
-        MoonTimeParagraph:SetDesc("Time: " .. GetFormattedTime() .. "\n" .. GetMoonTimeInfo())
+        CurrentMoonLabel:UpdateLabel("Moon: " .. CheckMoon())
+        CurrentTimeLabel:UpdateLabel("Time: " .. GetFormattedTime())
+        CurrentPhaseLabel:UpdateLabel("Phase: " .. GetGameTime())
     end
 end)
 
--- Create About Tab sections
-local AboutSection = AboutTab:AddSection("About This Script")
+-- About Tab
+local AboutTab = Window:NewTab("About")
+local AboutSection = AboutTab:NewSection("About")
 
-AboutTab:AddParagraph({
-    Title = "HerinaAuto Join Blox Fruit",
-    Content = "Version 1.1 - Fluent UI Edition\nPress RightShift to toggle UI\n\nAuto joins Full Moon servers based on API data."
-})
-
--- Set up SaveManager and InterfaceManager
-SaveManager:SetLibrary(Library)
-InterfaceManager:SetLibrary(Library)
-
--- Setup SaveManager
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
-SaveManager:SetFolder("Herina")
-SaveManager:BuildConfigSection(SettingsTab)
-
--- Set up theme UI
-Window:SelectTab(1)
+AboutSection:NewLabel("HerinaAuto Join Blox Fruit v1.0")
+AboutSection:NewLabel("Press RightShift to toggle UI")
 
 -- Initial setup
 if Settings.isAutoJoining then
@@ -626,8 +523,8 @@ spawn(function()
 end)
 
 -- Notification
-Library:Notify({
+game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "HerinaAuto Join Blox Fruit",
-    Content = "Loaded successfully! Press RightShift to toggle GUI",
+    Text = "Loaded successfully! Press RightShift to toggle GUI",
     Duration = 5
 })
