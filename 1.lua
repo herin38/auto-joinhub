@@ -155,27 +155,210 @@ local function joinFullMoonServer(server)
     return success
 end
 
--- Main Section
-local MainSection = Tabs.Main:AddSection("Full Moon Auto Join")
+-- Main tab with icons
+local MainSection = Tabs.Main:AddSection("🌕 Full Moon Auto Join")
 
-MainSection:AddToggle("AutoJoinToggle", {
-    Title = "Auto Join Full Moon Servers",
+-- Auto Join Toggle with status
+MainSection:AddToggle({
+    Title = "🔄 Auto Join Full Moon",
+    Description = "Automatically join servers with Full Moon",
     Default = false,
     Callback = function(Value)
         isAutoJoining = Value
         if Value then
+            Fluent:Notify({
+                Title = "Auto Join",
+                Content = "Started searching for Full Moon servers",
+                Duration = 3,
+                Type = "success"
+            })
             spawn(function()
                 while isAutoJoining do
-                    fullMoonServers = fetchFullMoonServers()
-                    if #fullMoonServers > 0 then
-                        joinFullMoonServer(fullMoonServers[1])
+                    local moonStatus = CheckMoon()
+                    if moonStatus == "Full Moon" then
+                        fullMoonServers = fetchFullMoonServers()
+                        if #fullMoonServers > 0 then
+                            joinFullMoonServer(fullMoonServers[1])
+                            wait(5) -- Wait after join attempt
+                        end
                     end
                     wait(retryDelay)
                 end
             end)
+        else
+            Fluent:Notify({
+                Title = "Auto Join",
+                Content = "Stopped searching",
+                Duration = 3,
+                Type = "info"
+            })
         end
     end
 })
+
+-- Server Hop Button
+MainSection:AddButton({
+    Title = "🔄 Server Hop",
+    Description = "Hop to another server",
+    Callback = function()
+        fullMoonServers = fetchFullMoonServers()
+        if #fullMoonServers > 0 then
+            local randomServer = fullMoonServers[math.random(1, #fullMoonServers)]
+            joinFullMoonServer(randomServer)
+        else
+            Fluent:Notify({
+                Title = "Server Hop",
+                Content = "No servers available",
+                Duration = 3,
+                Type = "error"
+            })
+        end
+    end
+})
+
+-- Status Section
+local StatusSection = Tabs.Main:AddSection("📊 Status")
+
+-- Live Status Display
+local statusLabel = StatusSection:AddParagraph({
+    Title = "🎯 Current Status",
+    Content = "Initializing..."
+})
+
+-- Update Status
+spawn(function()
+    while wait(1) do
+        local moonStatus = CheckMoon()
+        local timeInfo = GetFormattedTime()
+        local gamePhase = GetGameTime()
+        
+        local statusText = string.format([[
+🌕 Moon: %s
+⏰ Time: %s
+🌙 Phase: %s
+🔄 Auto Join: %s
+⏱️ Delay: %d seconds
+📡 Servers Found: %d]], 
+            moonStatus,
+            timeInfo,
+            gamePhase,
+            isAutoJoining and "Running" or "Stopped",
+            retryDelay,
+            #fullMoonServers
+        )
+        
+        -- Add color indicators
+        local statusColor = moonStatus == "Full Moon" and "🟢" or 
+                           moonStatus == "Next Night" and "🟡" or "🔴"
+                           
+        statusLabel:SetContent(statusColor .. " " .. statusText)
+    end
+end)
+
+-- Moon Info Section
+local MoonSection = Tabs.MoonInfo:AddSection("🌕 Moon Information")
+
+-- Moon Phase Display
+local moonPhaseLabel = MoonSection:AddParagraph({
+    Title = "🌕 Moon Phase",
+    Content = "Checking..."
+})
+
+-- Time Until Display
+local timeUntilLabel = MoonSection:AddParagraph({
+    Title = "⏳ Time Until",
+    Content = "Calculating..."
+})
+
+-- Update Moon Info
+spawn(function()
+    while wait(1) do
+        local moonStatus = CheckMoon()
+        local clockTime = game.Lighting.ClockTime
+        local timeUntil = ""
+        
+        -- Calculate time until next phase
+        if moonStatus == "Full Moon" then
+            if clockTime < 5 then
+                timeUntil = string.format("Full Moon ends in %.1f hours", 5 - clockTime)
+            else
+                timeUntil = "Waiting for next cycle"
+            end
+        elseif moonStatus == "Next Night" then
+            if clockTime < 18 then
+                timeUntil = string.format("Full Moon starts in %.1f hours", 18 - clockTime)
+            else
+                timeUntil = string.format("Full Moon starts in %.1f hours", (24 - clockTime) + 18)
+            end
+        else
+            timeUntil = "Waiting for Next Night phase"
+        end
+        
+        -- Update labels with emoji indicators
+        local phaseEmoji = moonStatus == "Full Moon" and "🌕" or 
+                          moonStatus == "Next Night" and "🌓" or "🌑"
+                          
+        moonPhaseLabel:SetContent(string.format("%s Current Phase: %s", phaseEmoji, moonStatus))
+        timeUntilLabel:SetContent(string.format("⏳ %s", timeUntil))
+    end
+end)
+
+-- Server List Section
+local ServerSection = Tabs.Servers:AddSection("🖥️ Available Servers")
+
+-- Refresh Button
+ServerSection:AddButton({
+    Title = "🔄 Refresh Server List",
+    Description = "Get latest Full Moon servers",
+    Callback = function()
+        Fluent:Notify({
+            Title = "Refreshing",
+            Content = "Fetching server list...",
+            Duration = 2
+        })
+        
+        fullMoonServers = fetchFullMoonServers()
+        updateServerList()
+        
+        Fluent:Notify({
+            Title = "Refresh Complete",
+            Content = string.format("Found %d servers", #fullMoonServers),
+            Duration = 3,
+            Type = "success"
+        })
+    end
+})
+
+-- Server List Display
+local serverListLabel = ServerSection:AddParagraph({
+    Title = "📋 Server List",
+    Content = "Click Refresh to see servers"
+})
+
+-- Update Server List
+function updateServerList()
+    if #fullMoonServers == 0 then
+        serverListLabel:SetContent("❌ No servers found")
+        return
+    end
+    
+    local serverText = ""
+    for i, server in ipairs(fullMoonServers) do
+        if i > 5 then break end -- Show only top 5 servers
+        serverText = serverText .. string.format(
+            "🔹 Server %d | Players: %s | Type: %s\n",
+            i,
+            server.players,
+            server.serverType
+        )
+    end
+    
+    if #fullMoonServers > 5 then
+        serverText = serverText .. string.format("\n...and %d more servers", #fullMoonServers - 5)
+    end
+    
+    serverListLabel:SetContent(serverText)
+end
 
 -- Settings Section
 local SettingsSection = Tabs.Settings:AddSection("Settings")
@@ -190,23 +373,6 @@ SettingsSection:AddSlider("RetryDelaySlider", {
         retryDelay = Value
     end
 })
-
--- Moon Info Section
-local MoonSection = Tabs.MoonInfo:AddSection("Moon Status")
-
-local moonStatusLabel = MoonSection:AddParagraph({
-    Title = "Current Moon",
-    Content = "Loading..."
-})
-
--- Update moon status
-spawn(function()
-    while wait(1) do
-        local status = "Moon: " .. CheckMoon()
-        status = status .. "\nTime: " .. game.Lighting.ClockTime
-        moonStatusLabel:SetContent(status)
-    end
-end)
 
 -- Initial notification
 Fluent:Notify({
