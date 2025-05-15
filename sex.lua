@@ -1,3 +1,6 @@
+-- HerinaAuto Join Blox Fruit using dawid-scripts Fluent GUI
+-- Full Moon Auto Joiner with Moon Detection
+
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
@@ -113,8 +116,12 @@ end)
 
 spawn(function()
     while wait(1) do
-        if game.Workspace:FindFirstChild("_WorldOrigin") and game.Workspace._WorldOrigin:FindFirstChild("Locations") then
-            if game.Workspace._WorldOrigin.Locations:FindFirstChild("Mirage Island") then
+        local ok, locations = pcall(function()
+            return game.Workspace._WorldOrigin.Locations
+        end)
+
+        if ok and locations then
+            if locations:FindFirstChild("Mirage Island") then
                 mirageLabel:SetText("Mirage: Spawning ✅")
             else
                 mirageLabel:SetText("Mirage: Not Spawning ❌")
@@ -124,3 +131,133 @@ spawn(function()
         end
     end
 end)
+
+local function fetchFullMoonServers()
+    local success, res = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(customAPI))
+    end)
+    if not success then return {} end
+    local servers = {}
+    if res.status == "done" and res.results then
+        for _, ch in ipairs(res.results) do
+            for _, msg in ipairs(ch.messages or {}) do
+                for _, embed in ipairs(msg.embeds or {}) do
+                    local info = { jobId = nil, teleportScript = nil, serverType = nil, players = "N/A" }
+                    for _, field in ipairs(embed.fields or {}) do
+                        if field.name:find("Job ID") then
+                            info.jobId = field.value:match("```yaml
+(.-)```") or field.value
+                        elseif field.name:find("Join Script") then
+                            info.teleportScript = field.value:match("```lua
+(.-)```") or field.value
+                            if info.teleportScript:find("TeleportService") then
+                                info.serverType = "TeleportService"
+                            elseif info.teleportScript:find("__ServerBrowser") then
+                                info.serverType = "ServerBrowser"
+                            end
+                        elseif field.name:find("Players") then
+                            info.players = field.value:match("```yaml
+(.-)```") or field.value
+                        end
+                    end
+                    if info.teleportScript then table.insert(servers, info) end
+                end
+            end
+        end
+    end
+    return servers
+end
+
+local function joinFullMoonServer(info)
+    local success, err = pcall(function()
+        loadstring(info.teleportScript)()
+    end)
+    return success
+end
+
+local function startAutoJoining()
+    if isAutoJoining then return end
+    isAutoJoining = true
+    SaveSettings("isAutoJoining", true)
+    task.spawn(function()
+        while isAutoJoining do
+            fullMoonServers = fetchFullMoonServers()
+            for _, server in ipairs(fullMoonServers) do
+                if selectedServerType == "API1" or server.serverType == selectedServerType then
+                    if joinFullMoonServer(server) then break end
+                end
+            end
+            task.wait(retryDelay)
+        end
+    end)
+end
+
+local function stopAutoJoining()
+    isAutoJoining = false
+    SaveSettings("isAutoJoining", false)
+end
+
+Tabs.Main:AddToggle("AutoJoin", {
+    Title = "Auto Join Full Moon Servers",
+    Default = isAutoJoining
+}):OnChanged(function(state)
+    if state then startAutoJoining() else stopAutoJoining() end
+end)
+
+Tabs.Main:AddButton({
+    Title = "Refresh Servers",
+    Description = "Manually refresh server list",
+    Callback = function()
+        fullMoonServers = fetchFullMoonServers()
+    end
+})
+
+Tabs.Settings:AddSlider("RetryDelay", {
+    Title = "Retry Delay (sec)",
+    Description = "Time between join attempts",
+    Default = retryDelay,
+    Min = 1,
+    Max = 30
+}):OnChanged(function(value)
+    retryDelay = value
+    SaveSettings("retryDelay", value)
+end)
+
+Tabs.Settings:AddDropdown("ServerType", {
+    Title = "Server Type",
+    Values = {"API1", "TeleportService", "ServerBrowser"},
+    Default = selectedServerType
+}):OnChanged(function(value)
+    selectedServerType = value
+    SaveSettings("selectedServerType", value)
+end)
+
+Tabs.Settings:AddInput("CustomAPI", {
+    Title = "Custom API URL",
+    Default = customAPI,
+    Placeholder = "https://example.com/api"
+}):OnChanged(function(value)
+    customAPI = value
+    SaveSettings("customAPI", value)
+end)
+
+Tabs.About:AddParagraph({
+    Title = "About",
+    Content = "HerinaAuto Join Blox Fruit using dawid-scripts Fluent GUI
+Press RightShift to toggle UI."
+})
+
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:SetFolder("HerinaFluent")
+SaveManager:SetFolder("HerinaFluent/BloxFruit")
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+SaveManager:LoadAutoloadConfig()
+Window:SelectTab(1)
+
+Fluent:Notify({ Title = "HerinaAuto", Content = "Script Loaded", Duration = 5 })
+
+if isAutoJoining then startAutoJoining() end
