@@ -2,7 +2,7 @@
 local isMobile = game:GetService("UserInputService").TouchEnabled
 
 -- Orion UI Library (Beautiful UI like Banana Hub style)
-local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/OrionLibrary/Orion/refs/heads/main/source.lua')))()
 
 -- Create Beautiful Window
 local Window = OrionLib:MakeWindow({
