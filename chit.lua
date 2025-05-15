@@ -1,8 +1,8 @@
-local CamShake = require(game.ReplicatedStorage.Util.CameraShaker)
-CamShake:Stop()
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
-local Library = loadstring(game:HttpGet("https://github.com/ActualMasterOogway/Fluent-Renewed/releases/latest/download/Fluent.luau"))()
-local Window = Library:CreateWindow({
+local Window = Fluent:CreateWindow({
     Title = "HerinaAuto Join Blox Fruit",
     SubTitle = "Full Moon Auto Joiner",
     TabWidth = 160,
@@ -12,11 +12,14 @@ local Window = Library:CreateWindow({
     MinimizeKey = Enum.KeyCode.RightShift
 })
 
-local MainTab = Window:AddTab({ Title = "Main", Icon = "moon" })
-local SettingsTab = Window:AddTab({ Title = "Settings", Icon = "settings" })
-local MoonTab = Window:AddTab({ Title = "Moon Info", Icon = "info" })
-local AboutTab = Window:AddTab({ Title = "About", Icon = "help-circle" })
+local Tabs = {
+    Main = Window:AddTab({ Title = "Main", Icon = "moon" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
+    StatusServer = Window:AddTab({ Title = "Status Server", Icon = "info" }),
+    About = Window:AddTab({ Title = "About", Icon = "help-circle" })
+}
 
+local Options = Fluent.Options
 local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -42,7 +45,7 @@ local function LoadSettings()
     local success, result = pcall(function()
         return HttpService:JSONDecode(readfile(SaveFolder .. "/" .. ConfigFile))
     end)
-    if success then return result else return {} end
+    return success and result or {}
 end
 
 Settings = LoadSettings()
@@ -95,17 +98,33 @@ local function GetMoonTimeInfo()
     return GetFormattedTime()
 end
 
-local moonLabel = MoonTab:AddParagraph({ Title = "Moon", Content = "Loading..." })
-local timeLabel = MoonTab:AddParagraph({ Title = "Time", Content = "Loading..." })
-local phaseLabel = MoonTab:AddParagraph({ Title = "Phase", Content = "Loading..." })
+-- Status Server Tab paragraphs
+local MoonStatusParagraph = Tabs.StatusServer:AddParagraph({ Title = "Moon Status", Content = "Loading..." })
+local TimeStatusParagraph = Tabs.StatusServer:AddParagraph({ Title = "Time Status", Content = GetMoonTimeInfo() })
+local PhaseStatusParagraph = Tabs.StatusServer:AddParagraph({ Title = "Phase Status", Content = GetGameTime() })
+local MirageIslandParagraph = Tabs.StatusServer:AddParagraph({ Title = "Mirage Island", Content = "Checking..." })
 
+-- Update status information
 task.spawn(function()
     while true do
-        moonLabel:SetText("Moon: " .. CheckMoon())
-        timeLabel:SetText("Time: " .. GetMoonTimeInfo())
-        phaseLabel:SetText("Phase: " .. GetGameTime())
+        MoonStatusParagraph:SetText("Moon: " .. CheckMoon())
+        TimeStatusParagraph:SetText("Time: " .. GetMoonTimeInfo())
+        PhaseStatusParagraph:SetText("Phase: " .. GetGameTime())
         task.wait(1)
     end
+end)
+
+-- Check Mirage Island status
+task.spawn(function()
+    pcall(function()
+        while task.wait() do
+            if game.Workspace._WorldOrigin.Locations:FindFirstChild('Mirage Island') then
+                MirageIslandParagraph:SetText("Status: Spawning ✅")
+            else
+                MirageIslandParagraph:SetText("Status: Not Spawning ❌")
+            end
+        end
+    end)
 end)
 
 local function fetchFullMoonServers()
@@ -170,53 +189,66 @@ local function stopAutoJoining()
     SaveSettings("isAutoJoining", false)
 end
 
-MainTab:AddToggle("AutoJoin", {
+Tabs.Main:AddToggle("AutoJoin", {
     Title = "Auto Join Full Moon Servers",
-    Default = isAutoJoining,
-    Callback = function(state)
-        if state then startAutoJoining() else stopAutoJoining() end
+    Default = isAutoJoining
+}):OnChanged(function(state)
+    if state then startAutoJoining() else stopAutoJoining() end
+end)
+
+Tabs.Main:AddButton({
+    Title = "Refresh Servers",
+    Description = "Manually refresh server list",
+    Callback = function()
+        fullMoonServers = fetchFullMoonServers()
     end
 })
 
-MainTab:AddButton("Refresh Servers", function()
-    fullMoonServers = fetchFullMoonServers()
-end)
-
-SettingsTab:AddSlider("Retry Delay", {
+Tabs.Settings:AddSlider("RetryDelay", {
     Title = "Retry Delay (sec)",
     Description = "Time between join attempts",
     Default = retryDelay,
     Min = 1,
-    Max = 30,
-    Callback = function(value)
-        retryDelay = value
-        SaveSettings("retryDelay", value)
-    end
-})
+    Max = 30
+}):OnChanged(function(value)
+    retryDelay = value
+    SaveSettings("retryDelay", value)
+end)
 
-SettingsTab:AddDropdown("Server Type", {
+Tabs.Settings:AddDropdown("ServerType", {
     Title = "Server Type",
     Values = {"API1", "TeleportService", "ServerBrowser"},
-    Default = selectedServerType,
-    Callback = function(option)
-        selectedServerType = option
-        SaveSettings("selectedServerType", option)
-    end
-})
+    Default = selectedServerType
+}):OnChanged(function(value)
+    selectedServerType = value
+    SaveSettings("selectedServerType", value)
+end)
 
-SettingsTab:AddInput("Custom API", {
+Tabs.Settings:AddInput("CustomAPI", {
     Title = "Custom API URL",
     Default = customAPI,
-    Placeholder = "https://example.com/api",
-    Callback = function(text)
-        customAPI = text
-        SaveSettings("customAPI", text)
-    end
+    Placeholder = "https://example.com/api"
+}):OnChanged(function(value)
+    customAPI = value
+    SaveSettings("customAPI", value)
+end)
+
+Tabs.About:AddParagraph({
+    Title = "About",
+    Content = "HerinaAuto Join Blox Fruit using dawid-scripts Fluent GUI\nPress RightShift to toggle UI."
 })
 
-AboutTab:AddParagraph({
-    Title = "About",
-    Content = "HerinaAuto Join Blox Fruit (Fluent UI Edition)\nPress RightShift to toggle UI."
-})
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:SetFolder("HerinaFluent")
+SaveManager:SetFolder("HerinaFluent/BloxFruit")
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+SaveManager:LoadAutoloadConfig()
+Window:SelectTab(1)
+
+Fluent:Notify({ Title = "HerinaAuto", Content = "Script Loaded", Duration = 5 })
 
 if isAutoJoining then startAutoJoining() end
