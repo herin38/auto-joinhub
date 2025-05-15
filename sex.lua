@@ -1,6 +1,3 @@
--- HerinaAuto Join Blox Fruit using dawid-scripts Fluent GUI
--- Full Moon Auto Joiner with Moon Detection
-
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
@@ -18,7 +15,7 @@ local Window = Fluent:CreateWindow({
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "moon" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
-    Status = Window:AddTab({ Title = "Server Status", Icon = "info" }),
+    ServerStatus = Window:AddTab({ Title = "Server Status", Icon = "server" }),
     About = Window:AddTab({ Title = "About", Icon = "help-circle" })
 }
 
@@ -63,16 +60,34 @@ elseif game.PlaceId == 4442272183 then Sea2 = true
 elseif game.PlaceId == 7449423635 then Sea3 = true end
 
 local function MoonTextureId()
-    if Sea1 or Sea2 then return Lighting.FantasySky.MoonTextureId
-    elseif Sea3 then return Lighting.Sky.MoonTextureId end
+    if Sea1 then
+        return game:GetService("Lighting").FantasySky.MoonTextureId
+    elseif Sea2 then
+        return game:GetService("Lighting").FantasySky.MoonTextureId
+    elseif Sea3 then
+        return game:GetService("Lighting").Sky.MoonTextureId
+    end
 end
 
 local function CheckMoon()
-    local moon5 = "http://www.roblox.com/asset/?id=9709149431"
-    local moon4 = "http://www.roblox.com/asset/?id=9709149052"
-    local moon = MoonTextureId()
-    if moon == moon5 then return "Full Moon"
-    elseif moon == moon4 then return "Next Night" else return "Bad Moon" end
+    moon8 = "http://www.roblox.com/asset/?id=9709150401"
+    moon7 = "http://www.roblox.com/asset/?id=9709150086"
+    moon6 = "http://www.roblox.com/asset/?id=9709149680"
+    moon5 = "http://www.roblox.com/asset/?id=9709149431"
+    moon4 = "http://www.roblox.com/asset/?id=9709149052"
+    moon3 = "http://www.roblox.com/asset/?id=9709143733"
+    moon2 = "http://www.roblox.com/asset/?id=9709139597"
+    moon1 = "http://www.roblox.com/asset/?id=9709135895"
+    moonreal = MoonTextureId()
+    cofullmoonkothangbeo = "Bad Moon"
+    if moonreal == moon5 or moonreal == moon4 then
+        if moonreal == moon5 then
+            cofullmoonkothangbeo = "Full Moon"
+        elseif moonreal == moon4 then
+            cofullmoonkothangbeo = "Next Night"
+        end
+    end
+    return cofullmoonkothangbeo
 end
 
 local function GetFormattedTime()
@@ -101,35 +116,32 @@ local function GetMoonTimeInfo()
     return GetFormattedTime()
 end
 
-local moonLabel = Tabs.Status:AddParagraph({ Title = "Moon", Content = "Loading..." })
-local timeLabel = Tabs.Status:AddParagraph({ Title = "Time", Content = GetMoonTimeInfo() })
-local phaseLabel = Tabs.Status:AddParagraph({ Title = "Phase", Content = GetGameTime() })
-local mirageLabel = Tabs.Status:AddParagraph({ Title = "Mirage", Content = "Checking..." })
+local ServerStatusParagraphs = {
+    Moon = Tabs.ServerStatus:AddParagraph({ Title = "Moon Status", Content = "Loading..." }),
+    Time = Tabs.ServerStatus:AddParagraph({ Title = "Server Time", Content = GetMoonTimeInfo() }),
+    Phase = Tabs.ServerStatus:AddParagraph({ Title = "Time Phase", Content = GetGameTime() }),
+    Mirage = Tabs.ServerStatus:AddParagraph({ Title = "Mirage Island", Content = "Checking..." })
+}
 
-spawn(function()
-    while wait(1) do
-        moonLabel:SetText("Moon: " .. CheckMoon())
-        timeLabel:SetText("Time: " .. GetMoonTimeInfo())
-        phaseLabel:SetText("Phase: " .. GetGameTime())
+task.spawn(function()
+    while true do
+        ServerStatusParagraphs.Moon:SetText("Moon Status: " .. CheckMoon())
+        ServerStatusParagraphs.Time:SetText("Server Time: " .. GetMoonTimeInfo())
+        ServerStatusParagraphs.Phase:SetText("Time Phase: " .. GetGameTime())
+        task.wait(1)
     end
 end)
 
 spawn(function()
-    while wait(1) do
-        local ok, locations = pcall(function()
-            return game.Workspace._WorldOrigin.Locations
-        end)
-
-        if ok and locations then
-            if locations:FindFirstChild("Mirage Island") then
-                mirageLabel:SetText("Mirage: Spawning ✅")
+    pcall(function()
+        while wait() do
+            if game.Workspace._WorldOrigin.Locations:FindFirstChild('Mirage Island') then
+                ServerStatusParagraphs.Mirage:SetText("Mirage Island: Spawning ✅")
             else
-                mirageLabel:SetText("Mirage: Not Spawning ❌")
+                ServerStatusParagraphs.Mirage:SetText("Mirage Island: Not Spawning ❌")
             end
-        else
-            mirageLabel:SetText("Mirage: Not Spawning ❌")
         end
-    end
+    end)
 end)
 
 local function fetchFullMoonServers()
@@ -145,19 +157,16 @@ local function fetchFullMoonServers()
                     local info = { jobId = nil, teleportScript = nil, serverType = nil, players = "N/A" }
                     for _, field in ipairs(embed.fields or {}) do
                         if field.name:find("Job ID") then
-                            info.jobId = field.value:match("```yaml
-(.-)```") or field.value
+                            info.jobId = field.value:match("```yaml\n(.-)```") or field.value
                         elseif field.name:find("Join Script") then
-                            info.teleportScript = field.value:match("```lua
-(.-)```") or field.value
+                            info.teleportScript = field.value:match("```lua\n(.-)```") or field.value
                             if info.teleportScript:find("TeleportService") then
                                 info.serverType = "TeleportService"
                             elseif info.teleportScript:find("__ServerBrowser") then
                                 info.serverType = "ServerBrowser"
                             end
                         elseif field.name:find("Players") then
-                            info.players = field.value:match("```yaml
-(.-)```") or field.value
+                            info.players = field.value:match("```yaml\n(.-)```") or field.value
                         end
                     end
                     if info.teleportScript then table.insert(servers, info) end
@@ -232,19 +241,9 @@ Tabs.Settings:AddDropdown("ServerType", {
     SaveSettings("selectedServerType", value)
 end)
 
-Tabs.Settings:AddInput("CustomAPI", {
-    Title = "Custom API URL",
-    Default = customAPI,
-    Placeholder = "https://example.com/api"
-}):OnChanged(function(value)
-    customAPI = value
-    SaveSettings("customAPI", value)
-end)
-
 Tabs.About:AddParagraph({
     Title = "About",
-    Content = "HerinaAuto Join Blox Fruit using dawid-scripts Fluent GUI
-Press RightShift to toggle UI."
+    Content = "HerinaAuto Join Blox Fruit using dawid-scripts Fluent GUI\nPress RightShift to toggle UI."
 })
 
 SaveManager:SetLibrary(Fluent)
